@@ -20,6 +20,35 @@ return {
       })
     end,
   },
-  { "neovim/nvim-lspconfig" },
-  { "hrsh7th/nvim-cmp" },
+  {
+    "neovim/nvim-lspconfig",
+    config = function()
+    vim.lsp.config["tinymist"] = {
+      cmd = { "tinymist" },
+      filetypes = { "typst" },
+      settings = {
+        formatterMode = "typstyle",
+        exportPdf = "onSave",
+        semanticTokens = "disable",
+      },
+    }
+    vim.lsp.enable("tinymist")
+  end,
+  },
+  { 
+    "hrsh7th/nvim-cmp",
+    dependencies = {
+      "hrsh7th/cmp-nvim-lsp", -- For LSP completions
+      "hrsh7th/cmp-buffer", -- For buffer completions
+    },
+  },
+
+  {
+    "mason-org/mason.nvim",
+    opts = {
+      ensure_installed = {
+        "tinymist",
+      },
+    },
+  },
 }
