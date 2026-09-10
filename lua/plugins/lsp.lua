@@ -1,54 +1,57 @@
--- Completion & LSP plugins
+-- LSP, tool management and completion.
+--
+-- Load order matters: mason.nvim prepends its bin directory to $PATH during
+-- setup, so it must run before any server is started by name (tinymist,
+-- harper-ls and ruff live in mason's bin dir, not on the system PATH).
 return {
   {
-    "zbirenbaum/copilot.lua",
-    requires = {
-      "copilotlsp-nvim/copilot-lsp",
-    },
-    cmd = "Copilot",
-    event = "InsertEnter",
-    config = function()
-      require("copilot").setup({
-        suggestion = {
-          enabled = true,
-          auto_trigger = true,
-          keymap = {
-            accept = false,
-            accept_word = false,
-          },
-        }
-      })
-    end,
+    "mason-org/mason.nvim",
+    lazy = false,
+    priority = 100,
+    opts = {},
   },
+
   {
-    "neovim/nvim-lspconfig",
-    config = function()
-    vim.lsp.config["tinymist"] = {
-      cmd = { "tinymist" },
-      filetypes = { "typst" },
-      settings = {
-        formatterMode = "typstyle",
-        exportPdf = "onSave",
-        semanticTokens = "disable",
-      },
-    }
-    vim.lsp.enable("tinymist")
-  end,
-  },
-  { 
-    "hrsh7th/nvim-cmp",
-    dependencies = {
-      "hrsh7th/cmp-nvim-lsp", -- For LSP completions
-      "hrsh7th/cmp-buffer", -- For buffer completions
+    "mason-org/mason-lspconfig.nvim",
+    lazy = false,
+    dependencies = { "mason-org/mason.nvim", "neovim/nvim-lspconfig" },
+    opts = {
+      -- lspconfig server names, not mason package names.
+      ensure_installed = { "tinymist", "harper_ls", "pyright", "ruff" },
+      -- Servers are enabled explicitly in plugins/config/lsp.lua so that the
+      -- settings there are guaranteed to be registered first.
+      automatic_enable = false,
     },
   },
 
   {
-    "mason-org/mason.nvim",
-    opts = {
-      ensure_installed = {
-        "tinymist",
-      },
+    "neovim/nvim-lspconfig",
+    lazy = false,
+    dependencies = { "hrsh7th/cmp-nvim-lsp" },
+    config = function()
+      require("plugins.config.lsp")
+    end,
+  },
+
+  {
+    "hrsh7th/nvim-cmp",
+    event = { "InsertEnter", "CmdlineEnter" },
+    dependencies = {
+      "hrsh7th/cmp-nvim-lsp",
+      "hrsh7th/cmp-buffer",
     },
+    config = function()
+      require("plugins.config.cmp")
+    end,
+  },
+
+  {
+    "zbirenbaum/copilot.lua",
+    dependencies = { "copilotlsp-nvim/copilot-lsp" },
+    cmd = "Copilot",
+    event = "InsertEnter",
+    config = function()
+      require("plugins.config.copilot")
+    end,
   },
 }
