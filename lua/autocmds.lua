@@ -108,3 +108,91 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.opt_local.foldlevel = 99 -- start with everything open
   end,
 })
+
+-- PDF export on save. This used to come from tinymist's `exportPdf = "onSave"`;
+-- with the server disabled for memory reasons (see `lua/plugins/config/lsp.lua`)
+-- a one-shot `typst compile` does the same job without a resident process.
+--
+-- A chapter under `content/` cannot be compiled on its own: typst sandboxes
+-- each compilation to a project root, and a bare `typst compile <chapter>`
+-- roots at that chapter's own directory, so `#import "../../preamble.typ"` is
+-- rejected as escaping it. So resolve the root the same way typst-preview
+-- does (it passes `--root`) and compile the *main* document, not the buffer
+-- that happened to be saved.
+
+--- Nearest ancestor of `path` holding a `typst.toml` or `.git`, or nil.
+local function typst_root(path)
+  local found = vim.fs.find({ "typst.toml", ".git" }, {
+    path = vim.fs.dirname(path),
+    upward = true,
+  })[1]
+  return found and vim.fs.dirname(found) or nil
+end
+
+--- The document to compile: an explicit override, else the project's
+--- `main.typ`, else the file itself (a standalone note with no project).
+local function typst_target(file)
+  if vim.g.typst_main then
+    return vim.g.typst_main, typst_root(vim.g.typst_main)
+  end
+  local root = typst_root(file)
+  if root then
+    local main = root .. "/main.typ"
+    if vim.uv.fs_stat(main) then
+      return main, root
+    end
+  end
+  return file, root
+end
+
+-- Compiling the thesis costs ~5s and ~500MB, so two saves in quick succession
+-- would otherwise put two of those in flight at once. Keep at most one
+-- running; a save arriving mid-compile just queues a single rerun afterwards,
+-- so the PDF still ends up reflecting the newest text.
+local compiling = false
+local queued = false
+
+local function typst_export(file)
+  if vim.fn.executable("typst") == 0 then
+    return
+  end
+  if compiling then
+    queued = true
+    return
+  end
+
+  local target, root = typst_target(file)
+  local cmd = { "typst", "compile" }
+  if root then
+    vim.list_extend(cmd, { "--root", root })
+  end
+  table.insert(cmd, target)
+
+  compiling = true
+  vim.system(cmd, { text = true }, function(result)
+    compiling = false
+    if result.code ~= 0 then
+      -- Only failures are worth interrupting for; a clean compile is silent.
+      vim.schedule(function()
+        vim.notify(
+          "typst compile failed:\n" .. (result.stderr or ""),
+          vim.log.levels.ERROR
+        )
+      end)
+    end
+    if queued then
+      queued = false
+      vim.schedule(function()
+        typst_export(file)
+      end)
+    end
+  end)
+end
+
+vim.api.nvim_create_autocmd("BufWritePost", {
+  group = augroup("TypstExportPdf"),
+  pattern = "*.typ",
+  callback = function(args)
+    typst_export(args.file)
+  end,
+})

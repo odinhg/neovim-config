@@ -9,6 +9,13 @@ if ok then
 end
 
 -- Typst
+--
+-- TEMPORARILY DISABLED: tinymist's resident memory grows without bound on
+-- larger projects and takes Neovim down with it. The config below is kept
+-- intact; it is simply not in the `vim.lsp.enable` list further down. Run
+-- `:TinymistStart` to bring it up by hand for the current session when the
+-- editing features are worth the memory, or delete this note and re-add
+-- "tinymist" to the enable list once upstream fixes the leak.
 vim.lsp.config("tinymist", {
   settings = {
     formatterMode = "typstyle",
@@ -17,6 +24,13 @@ vim.lsp.config("tinymist", {
     semanticTokens = "disable",
   },
 })
+
+vim.api.nvim_create_user_command("TinymistStart", function()
+  vim.lsp.enable("tinymist")
+  -- `vim.lsp.enable` only attaches on the next FileType event, so re-trigger
+  -- it for buffers that are already open.
+  vim.cmd("silent! doautoall FileType")
+end, { desc = "Start tinymist for this session (disabled by default: memory use)" })
 
 -- Grammar / spelling (see config/harper.lua)
 vim.lsp.config("harper_ls", require("plugins.config.harper"))
@@ -30,4 +44,5 @@ vim.lsp.config("pyright", {
   },
 })
 
-vim.lsp.enable({ "tinymist", "harper_ls", "pyright", "ruff" })
+-- "tinymist" is deliberately absent here -- see the note above.
+vim.lsp.enable({ "harper_ls", "pyright", "ruff" })

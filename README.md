@@ -42,10 +42,35 @@ starts.
 
 | Server | Filetypes | Purpose |
 | --- | --- | --- |
-| `tinymist` | typst | Typst language server, `typstyle` formatting, PDF export on save |
+| `tinymist` | typst | Typst language server — **disabled**, see below |
 | `harper_ls` | prose + code comments | grammar and spelling |
 | `pyright` | python | types |
 | `ruff` | python | lint and format |
+
+### tinymist (disabled)
+
+tinymist's memory use grows until it takes Neovim down with it, so it is not in
+the `vim.lsp.enable` list in `lua/plugins/config/lsp.lua`. Its settings block is
+left intact, and `:TinymistStart` attaches it for the current session when the
+completion and jump-to-definition are worth the memory.
+
+What still works without it:
+
+| Feature | Now provided by |
+| --- | --- |
+| Syntax, indent, folds | Treesitter + `lua/autocmds.lua` |
+| Live preview | `:TypstPreview` (bundles its own tinymist, preview-only) |
+| PDF on save | `typst compile`, from the `TypstExportPdf` autocmd |
+| Spelling and grammar | harper-ls, which parses Typst natively |
+
+Formatting is the one real loss — `typstyle` was reached through tinymist, so
+there is no `gq`/format-on-save for Typst while the server is off.
+
+For an included chapter that will not compile on its own, set the root document:
+
+```lua
+vim.g.typst_main = "/path/to/thesis/main.typ"
+```
 
 Because mason prepends its `bin` directory to `$PATH` during setup, mason.nvim
 is loaded eagerly and before the others.
@@ -65,7 +90,7 @@ lualine shows a live word count in prose buffers.
 
 Configured in `lua/plugins/config/harper.lua`. Dialect is **American** and
 diagnostics are reported at `information`, so grammar notes stay visually
-distinct from tinymist's real Typst errors. Style rules that misfire on
+distinct from real Typst errors. Style rules that misfire on
 academic prose (`LongSentences`, `Hedging`, `SpelledNumbers`, `BoringWords`,
 `FillerWords`, `UseTitleCase`) are off; `AvoidContractions` is on for formal
 register. Everything unlisted keeps harper's default.
@@ -156,7 +181,7 @@ three that did something not otherwise bound.
 | `<C-Space>` | Trigger completion |
 | `<C-n>` / `<C-p>` | Next / previous item |
 | `<C-y>` or `<C-l>` | Confirm |
-| `<C-u>` / `<C-d>` | Scroll the docs popup |
+| `<C-u>` / `<C-d>` | Scroll the docs pop up |
 | `<Tab>` | Accept the Copilot suggestion (falls through if none is showing) |
 | `<S-Tab>` | Accept one word of the Copilot suggestion |
 
